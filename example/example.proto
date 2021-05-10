@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package example;
+
+option go_package = "gitlab.alibaba-inc.com/moweng.xx/grpc-proxy/example";
+
+message EmptyRequest {}
+
+message EmptyResponse {}
+
+message HelloRequest {
+  string req = 1;
+}
+
+message HelloResponse {
+  string res = 1;
+  int32 cnt = 2;
+}
+
+service Example {
+  rpc UnaryReqEmpty(EmptyRequest) returns (HelloResponse) {}
+  rpc UnaryResEmpty(HelloRequest) returns (EmptyResponse) {}
+  rpc UnaryAllEmpty(EmptyRequest) returns (EmptyResponse) {}
+  rpc UnaryNonEmpty(HelloRequest) returns (HelloResponse) {}
+
+  rpc StreamReq(stream HelloRequest) returns (HelloResponse) {}
+  rpc StreamRes(HelloRequest) returns (stream HelloResponse) {}
+  rpc StreamAll(stream HelloRequest) returns (stream HelloResponse) {}
+}
+
+message DemoMsgV1 {
+  string name = 1;
+  int32 age = 2;
+}
+
+message DemoMsgV2 {
+  string name = 1;
+  string address = 3;
+}

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package mwitkow.testproto;
 
+option go_package = "gitlab.alibaba-inc.com/moweng.xx/grpc-proxy/testservice";
+
 message Empty {
 }
 
@@ -24,6 +26,4 @@ service TestService {
   rpc PingList(PingRequest) returns (stream PingResponse) {}
 
   rpc PingStream(stream PingRequest) returns (stream PingResponse) {}
-
 }
-

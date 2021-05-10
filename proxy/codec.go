@@ -5,27 +5,35 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding"
 )
 
-// Codec returns a proxying grpc.Codec with the default protobuf codec as parent.
-//
-// See CodecWithParent.
-func Codec() grpc.Codec {
-	return CodecWithParent(&protoCodec{})
+// Codec is an interface which is required to maintain compatibility with both
+// grpc.Codec and encoding.Codec.
+type Codec interface {
+	grpc.Codec
+	encoding.Codec
 }
 
-// CodecWithParent returns a proxying grpc.Codec with a user provided codec as parent.
+// NewCodec returns a proxying encoding.Codec with the default protobuf codec as parent.
+//
+// See CodecWithParent.
+func NewCodec() Codec {
+	return codecWithParent(&protoCodec{})
+}
+
+// codecWithParent returns a proxying Codec with a user provided codec as parent.
 //
 // This codec is *crucial* to the functioning of the proxy. It allows the proxy server to be oblivious
 // to the schema of the forwarded messages. It basically treats a gRPC message frame as raw bytes.
 // However, if the server handler, or the client caller are not proxy-internal functions it will fall back
 // to trying to decode the message using a fallback codec.
-func CodecWithParent(fallback grpc.Codec) grpc.Codec {
+func codecWithParent(fallback Codec) Codec {
 	return &rawCodec{fallback}
 }
 
 type rawCodec struct {
-	parentCodec grpc.Codec
+	parentCodec encoding.Codec
 }
 
 type frame struct {
@@ -38,7 +46,6 @@ func (c *rawCodec) Marshal(v interface{}) ([]byte, error) {
 		return c.parentCodec.Marshal(v)
 	}
 	return out.payload, nil
-
 }
 
 func (c *rawCodec) Unmarshal(data []byte, v interface{}) error {
@@ -50,21 +57,37 @@ func (c *rawCodec) Unmarshal(data []byte, v interface{}) error {
 	return nil
 }
 
-func (c *rawCodec) String() string {
-	return fmt.Sprintf("proxy>%s", c.parentCodec.String())
+func (c *rawCodec) Name() string {
+	return fmt.Sprintf("proxy>%s", c.parentCodec.Name())
 }
 
-// protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
+func (c *rawCodec) String() string {
+	return c.Name()
+}
+
+// protoCodec is a Codec implementation with protobuf. It is the default codec for gRPC.
 type protoCodec struct{}
 
 func (protoCodec) Marshal(v interface{}) ([]byte, error) {
-	return proto.Marshal(v.(proto.Message))
+	vv, ok := v.(proto.Message)
+	if !ok {
+		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message", v)
+	}
+	return proto.Marshal(vv)
 }
 
 func (protoCodec) Unmarshal(data []byte, v interface{}) error {
-	return proto.Unmarshal(data, v.(proto.Message))
+	vv, ok := v.(proto.Message)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message", v)
+	}
+	return proto.Unmarshal(data, vv)
 }
 
-func (protoCodec) String() string {
+func (protoCodec) Name() string {
 	return "proto"
+}
+
+func (c protoCodec) String() string {
+	return c.Name()
 }
